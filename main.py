@@ -7,7 +7,7 @@ st.set_page_config(page_title="WPS AI 비서", page_icon="🤖")
 st.title("🤖 제미니 2.0 실무 상담원")
 
 # 1. API 키 설정 (오빠의 cckc 키 그대로 사용!)
-API_KEY = "AIzaSyDyfcjtoFpivtt0rteX6WXAT9MCQ5x_3PU" 
+API_KEY = "AIzaSyB7SrAlQzRi80ginfPkNAd8DkICFddZr18" 
 genai.configure(api_key=API_KEY)
 
 # 2. 모델 설정 (오빠가 발견한 최신형 2.0 Flash로 변경!)
