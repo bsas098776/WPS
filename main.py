@@ -4,7 +4,7 @@ import google.generativeai as genai
 
 # 페이지 설정
 st.set_page_config(page_title="윤성 WPS AI 비서", page_icon="🍌")
-st.title("🍌 Gemini 2.5 Flash-Lite 상담원")
+st.title("🍌 WPS 상담원")
 
 # 1. 오빠의 API 키 설정
 API_KEY = "AIzaSyDomjRAFhabTQ8w7pfnJZr6FkcmApicckc" 
