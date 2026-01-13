@@ -6,7 +6,7 @@ st.set_page_config(page_title="WPS AI 비서", page_icon="🤖")
 st.title("🤖 제미니가 알려주는 WPS 실무 상담")
 
 # API 키 설정 (오빠 키 그대로!)
-API_KEY = "AIzaSyDyfcjtoFpivtt0rteX6WXAT9MCQ5x_3PU" 
+API_KEY = "AIzaSyB7SrAlQzRi80ginfPkNAd8DkICFddZr18" 
 genai.configure(api_key=API_KEY)
 
 # 뇌 이식 (안전 설정 추가!)
