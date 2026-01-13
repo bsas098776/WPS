@@ -10,7 +10,7 @@ API_KEY = "AIzaSyB7SrAlQzRi80ginfPkNAd8DkICFddZr18"
 genai.configure(api_key=API_KEY)
 
 # 뇌 이식 (안전 설정 추가!)
-model = genai.GenerativeModel('gemini-1.5-flash')
+model = genai.GenerativeModel('models/gemini-1.5-flash')
 
 @st.cache_data
 def load_data():
