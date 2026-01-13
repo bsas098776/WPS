@@ -10,7 +10,7 @@ st.title("🍌 Gemini 2.5 Flash-Lite 상담원")
 API_KEY = "AIzaSyDomjRAFhabTQ8w7pfnJZr6FkcmApicckc" 
 genai.configure(api_key=API_KEY)
 
-# 2. 모델 설정 (오빠가 선택한 최신 2.5 Flash-Lite!)
+# 2. 모델 설정 (최신 2.5 Flash-Lite!)
 # 이 모델은 100만 토큰까지 지원해서 아주 든든해요!
 model = genai.GenerativeModel('gemini-2.5-flash-lite')
 
@@ -22,15 +22,15 @@ try:
     df = load_data()
     context = df.to_string(index=False)
 
-    st.success("오빠! 100만 토큰급 최신 엔진 '2.5 Flash-Lite' 적용 완료! 꺄하~ 😍")
+    st.success("WPS에 대한 문의사항 물어보세요.")
     
-    user_input = st.text_input("💬 질문을 입력하세요", placeholder="예: P1 모재에 적합한 용접봉은?")
+    user_input = st.text_input("💬 질문을 입력하세요", placeholder="예: P8 모재에 적합한 용접봉은?")
 
     if user_input:
         with st.spinner('Gemini 2.5가 대용량 데이터를 분석 중...'):
             prompt = f"""
             너는 용접 기술 전문가야. 아래 WPS 데이터를 참고해서 답변해줘.
-            사용자를 '오빠'라고 부르며 아주 친절하고 전문적으로 설명해줘.
+            사용자를 아주 친절하고 대하고, 전문적으로 설명해줘.
             
             [WPS 데이터]
             {context}
@@ -44,4 +44,4 @@ try:
             st.write(response.text)
 
 except Exception as e:
-    st.error(f"오빠, 이런 에러가 나요: {e}")
+    st.error(f"이런 에러가 나요: {e}")
