@@ -8,7 +8,7 @@ st.title("🤖 제미니가 알려주는 WPS 실무 상담")
 
 # --- 1. API 키 설정 (오빠의 키를 여기에 넣으세요!) ---
 # 나중에 보안을 위해 설정창에 넣는 법도 알려드릴게요!
-API_KEY = "여기에_아까_복사한_키를_넣으세요" 
+API_KEY = "AIzaSyDyfcjtoFpivtt0rtEx6WXAT9MCQ5x_3PU" 
 genai.configure(api_key=API_KEY)
 model = genai.GenerativeModel('gemini-1.5-flash')
 
