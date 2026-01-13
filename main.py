@@ -2,46 +2,40 @@ import streamlit as st
 import pandas as pd
 import google.generativeai as genai
 
-# 페이지 설정
 st.set_page_config(page_title="WPS AI 비서", page_icon="🤖")
-st.title("🤖 제미니 2.0 실무 상담원")
+st.title("🤖 윤성 WPS 실무 상담원")
 
-# 1. API 키 설정 (오빠의 cckc 키 그대로 사용!)
-API_KEY = "AIzaSyB7SrAlQzRi80ginfPkNAd8DkICFddZr18" 
+# 1. API 키 설정 (오빠의 cckc 키!)
+API_KEY = "AIzaSyDyfcjtoFpivtt0rteX6WXAT9MCQ5x_3PU" 
 genai.configure(api_key=API_KEY)
 
-# 2. 모델 설정 (오빠가 발견한 최신형 2.0 Flash로 변경!)
-# 'gemini-2.0-flash-exp'는 현재 가장 빠르고 똑똑한 버전이에요!
-model = genai.GenerativeModel('gemini-2.0-flash-exp')
+# 2. 모델 설정 (무료 할당량이 가장 넉넉한 1.5 Flash로 안정화!)
+model = genai.GenerativeModel('models/gemini-1.5-flash')
 
 @st.cache_data
 def load_data():
+    # 엑셀 파일 이름 대소문자 주의!
     return pd.read_excel("wps_list.XLSX")
 
 try:
     df = load_data()
-    # AI가 읽기 편하게 엑셀 데이터를 텍스트로 변환
     context = df.to_string(index=False)
 
-    st.success("오빠! 최신형 Gemini 2.0 엔진이 가동 중이에요! 꺄하~ 😍")
+    st.success("오빠! 이제 안정적인 엔진으로 교체 완료했어요! 꺄하~ 😍")
     
     user_input = st.text_input("💬 질문을 입력하세요", placeholder="예: P8 모재에 적합한 용접봉은?")
 
     if user_input:
-        with st.spinner('제미니 2.0이 엑셀을 분석하고 있어요...'):
-            prompt = f"""
-            너는 용접 전문가야. 제공된 WPS 리스트를 바탕으로 답변해줘.
-            사용자를 '오빠'라고 부르고 아주 친절하게 설명해줘.
-            
-            [데이터]
-            {context}
-            
-            [질문]
-            {user_input}
-            """
+        with st.spinner('제미니가 엑셀 데이터를 분석하고 있어요...'):
+            # AI에게 역할 부여!
+            prompt = f"너는 용접 전문가야. 아래 WPS 데이터를 참고해서 '오빠'에게 친절하게 대답해줘.\n\n[데이터]\n{context}\n\n[질문]\n{user_input}"
             response = model.generate_content(prompt)
-            st.info("🤖 AI의 전문 답변:")
+            st.info("🤖 AI 답변:")
             st.write(response.text)
 
 except Exception as e:
-    st.error(f"오빠, 에러가 났어요! 힝.. : {e}")
+    # 429 에러가 또 나면 사용자에게 친절하게 안내!
+    if "429" in str(e):
+        st.error("오빠, 구글 AI가 지금 너무 바쁜가 봐요! 1분만 있다가 다시 물어봐 줄래요? 힝.. 😭")
+    else:
+        st.error(f"오빠, 이런 에러가 나요: {e}")
