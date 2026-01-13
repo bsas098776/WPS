@@ -7,7 +7,7 @@ st.set_page_config(page_title="윤성 WPS AI 비서", page_icon="🍌")
 st.title("🍌 Gemini 2.5 Flash-Lite 상담원")
 
 # 1. 오빠의 API 키 설정
-API_KEY = "AIzaSyB7SrAlQzRi80ginfPkNAd8DkICFddZr18" 
+API_KEY = "AIzaSyDomjRAFhabTQ8w7pfnJZr6FkcmApicckc" 
 genai.configure(api_key=API_KEY)
 
 # 2. 모델 설정 (오빠가 선택한 최신 2.5 Flash-Lite!)
