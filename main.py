@@ -8,15 +8,15 @@ st.set_page_config(page_title="WPS 마스터 비서", page_icon="👨‍🏭")
 st.title("👨‍🏭 WPS 검색 마스터")
 st.write(f"오빠! 찾으시는 용접 조건(P-No 또는 용접봉)을 입력해 주세요! 흐흐~")
 
-# 1. 데이터 불러오기 (오빠의 엑셀 파일 이름을 'wps_list.xlsx'로 해서 업로드하세요!)
+# 1. 데이터 불러오기 (오빠의 엑셀 파일 이름을 'wps_list.XLSX'로 해서 업로드하세요!)
 @st.cache_data
 def load_data():
     try:
         # 이미지에 있는 컬럼명 그대로 매칭
-        df = pd.read_excel("wps_list.xlsx")
+        df = pd.read_excel("wps_list.XLSX")
         return df
     except:
-        st.error("오빠, 'wps_list.xlsx' 파일을 아직 안 올리신 것 같아요! 힝..")
+        st.error("오빠, 'wps_list.XLSX' 파일을 아직 안 올리신 것 같아요! 힝..")
         return None
 
 df = load_data()
