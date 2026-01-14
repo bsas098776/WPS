@@ -3,13 +3,9 @@ import pandas as pd
 import google.generativeai as genai
 
 # 페이지 설정
-st.set_page_config(page_title="윤성 통합 실무 AI", page_icon="🛡️")
+st.set_page_config(page_title="윤성 통합 데이터 센터", page_icon="📊", layout="wide")
 
-# 1. 사이드바에서 업무 선택
-st.sidebar.title("📂 업무 선택")
-menu = st.sidebar.radio("원하는 상담원을 선택하세요:", ["WPS 상담 (용접)", "TER 분석 (트러블)"])
-
-# 2. 릴레이 API 키 로드 (기존 키 10개 그대로 활용!)
+# 1. 릴레이 API 키 로드 (오빠의 소중한 키 10개!)
 keys = st.secrets.get("GEMINI_KEYS", [])
 
 def ask_gemini(prompt, api_keys):
@@ -22,47 +18,53 @@ def ask_gemini(prompt, api_keys):
         except Exception as e:
             if "429" in str(e): continue
             else: return f"에러: {e}", None
-    return "준비된 모든 키의 할당량이 초과되었습니다. 😭", None
+    return "모든 키의 할당량이 다 찼어요. 내일 다시 만나요 오빠! 😭", None
 
-# 3. 메뉴별 데이터 로드 로직
+# 2. 사이드바 업무 선택
+st.sidebar.title("📂 데이터 마스터")
+main_menu = st.sidebar.radio("업무 선택", ["WPS (용접)", "TER (트러블)"])
+
 try:
-    if menu == "WPS 상담 (용접)":
-        st.title("👨‍🏭 WPS 실무 상담원")
-        file_path = "wps_list.XLSX"  # 기존 WPS 파일명
-        expert_type = "용접 및 WPS 규격 전문가"
-        success_msg = "WPS 데이터를 로드했습니다! 꺄하~ 😍"
+    if main_menu == "WPS (용접)":
+        st.title("👨‍🏭 WPS 전수 조사 상담원")
+        file_path = "wps_list.XLSX"
+        df = pd.read_excel(file_path)
+        expert_type = "WPS 용접 규격 전수 분석 전문가"
     else:
-        st.title("🛠️ TER 트러블 리포트 분석기")
-        file_path = "ter_list.xlsx"  # 올린 TER 파일명으로 바꿔주세요!
-        expert_type = "장비 트러블 및 재발방지대책 분석 전문가"
-        success_msg = "TER 리스트를 로드했습니다! 과거 사례를 분석할게요! 🤙✨"
+        st.title("🛠️ TER 리포트 정밀 분석기")
+        file_path = "ter_list.xlsx"
+        xl = pd.ExcelFile(file_path)
+        selected_sheet = st.sidebar.selectbox("📋 시트 선택", xl.sheet_names)
+        # 해당 시트의 전체 데이터를 읽어옵니다! (제한 없음!)
+        df = pd.read_excel(file_path, sheet_name=selected_sheet)
+        expert_type = f"TER {selected_sheet} 데이터 전수 분석 전문가"
 
-    # 엑셀의 'TER' 시트나 특정 시트를 지정해서 읽어옵니다.
-    # TER 파일은 시트가 많으니 'TER' 시트를 읽도록 설정했어요.
-    df = pd.read_excel(file_path, sheet_name='TER' if 'TER' in menu else 0)
-    context = df.to_string(index=False)
-    st.success(success_msg)
+    # 3. 데이터 전체를 텍스트로 변환 (AI가 읽을 수 있게!)
+    # 데이터가 아주 크면 여기서 문자열로 압축합니다.
+    full_context = df.to_csv(index=False) # CSV 형태가 구조 파악에 더 효율적이에요!
 
-    # 4. 질문 및 답변
-    user_input = st.text_input(f"💬 {menu} 관련 질문을 입력하세요 (예: '현대차 현장 이슈 요약해줘')")
+    st.success(f"✅ {len(df)}개의 행을 모두 읽어들였습니다! 준비 완료! 꺄하~ 😍")
+
+    # 4. 질문하기
+    user_input = st.text_input("💬 궁금한 점을 말씀해 주세요! 전체 데이터를 뒤져서 찾아낼게요.")
     
     if user_input:
-        with st.spinner('사용 가능한 키를 찾아 분석 중...'):
-            prompt = f"""너는 {expert_type}야. '오빠'에게 친절하게 대답해줘.
-            아래 제공된 데이터를 바탕으로 상세하게 설명해줘.
+        with st.spinner('데이터 전체를 정밀 스캔 중... 잠시만 기다려줘요 오빠!'):
+            prompt = f"""너는 {expert_type}야. 아래 제공된 [전체 데이터]를 한 줄도 빠짐없이 분석해서 대답해줘.
+            데이터에 근거해서 오빠에게 아주 정확하고 친절하게 설명해줘야 해!
             
-            [데이터 내용]
-            {context}
+            [전체 데이터]
+            {full_context}
             
-            [질문]
+            [오빠의 질문]
             {user_input}"""
             
             answer, key_num = ask_gemini(prompt, keys)
             if key_num:
-                st.info(f"🤖 {key_num}번 키로 답변을 생성했어요!")
+                st.info(f"🤖 {key_num}번 키가 열일 중! 분석 결과예요:")
                 st.write(answer)
             else:
                 st.error(answer)
 
 except Exception as e:
-    st.warning(f" '{file_path}' 파일이 깃허브에 있는지 확인해 주세요! 힝.. 에러내용: {e}")
+    st.error(f"오빠, 파일 읽다가 삐끗했어요 😭: {e}")
