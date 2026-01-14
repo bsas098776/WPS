@@ -28,7 +28,7 @@ main_menu = st.sidebar.radio("데이터 선택", ["WPS (용접)", "TER (트러�
 # 4. 데이터 로드 (에러가 많이 나는 31번 줄 부근!)
 try:
     if main_menu == "WPS (용접)":
-        file_path = "wps_list.XLSX"
+        file_path = "wps_list.xlsx"
         # WPS 파일이 존재하는지 먼저 확인!
         if os.path.exists(file_path):
             df = pd.read_excel(file_path, engine='openpyxl')
