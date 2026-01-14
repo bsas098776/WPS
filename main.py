@@ -4,7 +4,7 @@ import google.generativeai as genai
 
 # 페이지 설정
 st.set_page_config(page_title="윤성 WPS AI 비서", page_icon="🚀")
-st.title("🚀 Gemini 2.5 최신형 상담원")
+st.title("🚀 Gemini 2.0 최신형 상담원")
 
 # 1. 보안 금고(Secrets)에서 키 불러오기
 try:
@@ -16,7 +16,7 @@ except Exception:
 
 # 2. 모델 설정 (1.5 대신 하루 1,500번 가능한 2.5 Flash!)
 # 2.5 Flash는 1.5보다 훨씬 똑똑하고 지원 기간도 넉넉해요!
-model = genai.GenerativeModel('gemini-2.5-flash')
+model = genai.GenerativeModel('gemini-2.0-flash')
 
 @st.cache_data
 def load_data():
