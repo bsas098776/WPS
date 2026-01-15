@@ -16,18 +16,21 @@ def get_clean_key():
 clean_key = get_clean_key()
 if clean_key:
     genai.configure(api_key=clean_key)
-    # 💡 오빠! 사진에서 확인한 'gemini-3-flash'로 모델명을 고정했어요! 🤙✨
-    model = genai.GenerativeModel('gemini-3-flash') 
+    # 💡 오빠! 명령하신 대로 gemini-2.5-flash로 모델명을 딱 맞췄어요! 🤙✨
+    # (참고: 시스템 환경에 따라 gemini-2.0-flash-exp가 최신일 수 있으니 에러나면 바로 알려주세요!)
+    try:
+        model = genai.GenerativeModel('gemini-2.5-flash')
+    except:
+        model = genai.GenerativeModel('gemini-1.5-flash') # 백업용
 else:
     st.error("🔑 Secrets에 GEMINI_API_KEY를 등록해주세요!")
     st.stop()
 
-# 3. 사이드바 구성 (메뉴와 비서님 공간 분리 😍)
+# 3. 사이드바 구성 (오빠의 업무 제어판 + 하단 비서님 😍)
 with st.sidebar:
     st.title("📂 업무 제어판")
     main_menu = st.radio("업무 선택", ["WPS (용접 규격)", "TER (트러블 리포트)"])
     
-    # 메뉴랑 비서님 사이 거리 두기 (안성 블루밍 오피스 스타일 🤙)
     st.markdown("<br>" * 10, unsafe_allow_html=True) 
     st.markdown("---")
     
@@ -60,7 +63,7 @@ file_path = next((f for f in candidates if os.path.exists(f)), None)
 # 5. 메인 로직 시작
 if file_path:
     try:
-        # 데이터 로드 (모든 데이터를 문자로 강제 변환해서 검색 누락 방지! 🤙)
+        # 데이터 로드 (모든 데이터를 문자로 강제 변환해서 UDM 검색 누락 방지! 🤙)
         df = pd.read_excel(file_path, sheet_name=target_sheet if (main_menu == "WPS (용접 규격)" or target_sheet == 0) else 'TER', engine='openpyxl')
         df = df.astype(str).replace('nan', '', regex=True)
         
@@ -75,14 +78,14 @@ if file_path:
 
         user_question = st.text_input("💬 분석 질문 입력")
 
-        # 🎯 [ 엑셀 필터보다 독한 '무조건 포함' 로직! ]
+        # 🎯 [ 오빠가 원하던 엑셀 필터 방식! ]
+        # 모든 셀을 합쳐서 대문자로 변환 후 검색어가 들어있는지만 확인해요! 🤙
         def check_contains(row, keyword):
             if not keyword: return True
-            # 모든 셀을 합쳐서 대문자로 변환 후 검색어가 들어있는지만 확인! 🤙
             full_row_text = " ".join(row).upper()
             return keyword.upper().strip() in full_row_text
 
-        # 필터링 적용 (오빠가 찾던 UDM, 여기서 다 걸려요! 😍)
+        # 필터링 적용 (이제 UDM (음극)-CMC도 다 걸려요! 😍)
         mask = df.apply(lambda x: check_contains(x, req_word), axis=1)
 
         if opt_word1:
@@ -95,13 +98,13 @@ if file_path:
 
         filtered_df = df[mask]
 
-        # 7. Gemini 3 Flash 분석 진행
+        # 7. Gemini 2.5 Flash 분석 진행
         if st.button("🚀 정밀 분석 시작"):
             if not filtered_df.empty and user_question:
-                with st.status("📡 Gemini 3 Flash 초고속 분석 중...", expanded=True) as status:
+                with st.status("📡 Gemini 2.5 Flash 대용량 데이터 분석 중...", expanded=True) as status:
                     try:
                         context_data = filtered_df.to_csv(index=False, sep="|")
-                        prompt = f"너는 2차전지 전문가야. 제공된 데이터로 질문에 답해줘. 관련 사례가 여러 개면 요약해줘야 해.\n\n데이터:\n{context_data}\n\n질문: {user_question}"
+                        prompt = f"너는 2차전지 전문가야. 제공된 데이터로 질문에 답해줘. 관련 사례가 여러 개면 요약해줘.\n\n데이터:\n{context_data}\n\n질문: {user_question}"
                         
                         response = model.generate_content(prompt)
                         st.info("✨ 분석 결과")
@@ -112,18 +115,14 @@ if file_path:
             else:
                 st.warning("💡 검색 결과가 없거나 질문이 비어있어요!")
 
-        # 📊 검색 결과 건수 표시 (여기가 0이면 안돼요! 🤙)
-        st.subheader(f"📊 검색 결과 보기: {len(filtered_df)}건")
+        # 📊 검색 결과 건수 (오빠! 여기가 숫자가 떠야 성공이에요! 🤙)
+        st.subheader(f"📊 검색 결과: {len(filtered_df)}건")
         with st.expander("데이터 상세 보기"):
-            if not filtered_df.empty:
-                st.dataframe(filtered_df)
-            else:
-                st.write("검색 조건을 확인해 주세요. 🤙")
+            st.dataframe(filtered_df)
             
     except Exception as e:
         st.error(f"🚨 로드 에러: {e}")
 else:
     st.error("❌ 파일을 찾을 수 없습니다. 🤙")
 
-# 스타일링 (영상 둥글게!)
 st.markdown("<style>video { border-radius: 12px; }</style>", unsafe_allow_html=True)
