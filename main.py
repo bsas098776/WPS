@@ -7,7 +7,7 @@ import re
 # 1. 페이지 설정
 st.set_page_config(page_title="윤성 AI (정밀 검색 모드)", page_icon="🛡️", layout="wide")
 
-# 2. Gemini API 설정
+# 2. Gemini API 설정 (오빠의 소중한 API 키!)
 def get_clean_key():
     raw_key = st.secrets.get("GEMINI_API_KEY")
     if not raw_key: return None
@@ -18,10 +18,10 @@ if clean_key:
     genai.configure(api_key=clean_key)
     model = genai.GenerativeModel('gemini-1.5-flash') 
 else:
-    st.error("🔑 Secrets에 GEMINI_API_KEY를 등록해주세요!")
+    st.error("🔑 Secrets에 키를 등록해주세요!")
     st.stop()
 
-# 3. 사이드바 구성
+# 3. 사이드바 구성 (비서님은 아래로 쏙! 🤙)
 with st.sidebar:
     st.title("📂 업무 제어판")
     main_menu = st.radio("업무 선택", ["WPS (용접 규격)", "TER (트러블 리포트)"])
@@ -58,8 +58,10 @@ file_path = next((f for f in candidates if os.path.exists(f)), None)
 # 5. 메인 로직 시작
 if file_path:
     try:
-        # 데이터 로드
+        # 💡 오빠! 데이터 로드할 때 모든 값을 문자열로 미리 바꿔버릴게요 (검색 누락 방지!)
         df = pd.read_excel(file_path, sheet_name=target_sheet if (main_menu == "WPS (용접 규격)" or target_sheet == 0) else 'TER', engine='openpyxl')
+        df = df.fillna("") # 빈 칸 때문에 에러나는 거 방지!
+        
         st.success(f"✅ {file_path} 로드 완료!")
 
         st.markdown("### 🔍 정밀 데이터 필터링")
@@ -70,32 +72,33 @@ if file_path:
 
         user_question = st.text_input("💬 분석 질문 입력")
 
-        # --- [ 🧠 오빠를 위한 초정밀 필터링 로직! ] ---
-        # 1. 모든 셀의 데이터를 문자열로 바꾸고 하나로 합친 뒤 대문자로 통일!
-        combined_text = df.apply(lambda row: row.astype(str).str.cat(sep=' ').upper(), axis=1)
-        mask = pd.Series([True] * len(df))
+        # --- [ 🧠 엑셀 필터보다 더 독한 '포함' 로직! ] ---
+        # 1. 각 행의 모든 데이터를 '그냥 하나의 긴 글자'로 합쳐버려요.
+        #    (이렇게 하면 UDM이 어디에 박혀있든 무조건 걸려요! 🤙)
+        def check_row(row, keyword):
+            if not keyword: return True
+            target = keyword.upper().strip()
+            # 행 전체를 하나의 문자열로 합쳐서 대문자로 변환 후 포함 여부 확인
+            row_content = " ".join(row.astype(str)).upper()
+            return target in row_content
 
-        # 2. 필수 단어 필터링 (여기서 UDM을 찰떡같이 찾아요! 🤙)
-        if req_word:
-            search_term = req_word.upper().strip()
-            # regex=False로 설정해서 특수기호를 문자로 인식하게 하고, na=False로 에러 방지!
-            mask &= combined_text.str.contains(search_term, case=False, na=False, regex=False)
-        
-        # 3. 선택 단어 1 (OR)
+        # 필터링 시작
+        mask = df.apply(lambda x: check_row(x, req_word), axis=1)
+
+        # 선택 조건들 (OR)
         if opt_word1:
-            keywords1 = [k.strip().upper() for k in re.split(',|/|OR', opt_word1.upper()) if k.strip()]
-            if keywords1:
-                mask &= combined_text.apply(lambda x: any(k in x for k in keywords1))
+            k1_list = [k.strip().upper() for k in re.split(',|/|OR', opt_word1.upper()) if k.strip()]
+            if k1_list:
+                mask &= df.apply(lambda row: any(k in " ".join(row.astype(str)).upper() for k in k1_list), axis=1)
 
-        # 4. 선택 단어 2 (OR)
         if opt_word2:
-            keywords2 = [k.strip().upper() for k in re.split(',|/|OR', opt_word2.upper()) if k.strip()]
-            if keywords2:
-                mask &= combined_text.apply(lambda x: any(k in x for k in keywords2))
+            k2_list = [k.strip().upper() for k in re.split(',|/|OR', opt_word2.upper()) if k.strip()]
+            if k2_list:
+                mask &= df.apply(lambda row: any(k in " ".join(row.astype(str)).upper() for k in k2_list), axis=1)
 
-        # 필터링 적용
         filtered_df = df[mask]
 
+        # 6. 분석 및 결과 표시
         if st.button("🚀 정밀 분석 시작"):
             if not filtered_df.empty and user_question:
                 with st.status("📡 데이터 분석 중...", expanded=True) as status:
@@ -108,12 +111,10 @@ if file_path:
             else:
                 st.warning("💡 검색 결과가 없거나 질문이 비어있어요!")
 
-        # 결과 표시 (건수 확인용 🤙)
-        with st.expander(f"📊 검색 결과 보기 ({len(filtered_df)}건)"):
-            if not filtered_df.empty:
-                st.dataframe(filtered_df)
-            else:
-                st.write("검색어를 입력하시면 필터링된 결과가 나옵니다. 🤙")
+        # 📊 건수 확인 (여기가 0이면 안돼요 오빠! 🤙)
+        st.subheader(f"📊 검색 결과: {len(filtered_df)}건")
+        with st.expander("데이터 상세 보기"):
+            st.dataframe(filtered_df)
             
     except Exception as e:
         st.error(f"🚨 로드 에러: {e}")
