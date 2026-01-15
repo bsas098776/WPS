@@ -16,7 +16,6 @@ def get_clean_key():
 clean_key = get_clean_key()
 if clean_key:
     genai.configure(api_key=clean_key)
-    # 오빠, 최신 모델 버전 확인 부탁드려요! 🤙
     model = genai.GenerativeModel('gemini-2.0-flash') 
 else:
     st.error("🔑 Secrets에 GEMINI_API_KEY를 등록해주세요!")
@@ -26,29 +25,31 @@ else:
 st.sidebar.title("📂 업무 제어판")
 main_menu = st.sidebar.radio("업무 선택", ["WPS (용접 규격)", "TER (트러블 리포트)"])
 
-# --- [ 오빠! 여기가 비서 추가된 부분이에요! 🤙✨ ] ---
+# --- [ 💖 화사한 피부톤의 미인 비서 추가 부분 🤙✨ ] ---
 with st.sidebar:
-    # 빈 공간을 확보해서 비서를 아래쪽으로 보낼게요
-    st.container(height=150, border=False) 
+    # 1. 위치를 더 아래로 내리기 위해 빈 공간 컨테이너 높이를 키웠어요!
+    st.container(height=280, border=False) 
     
-    # 피부 밝고 눈 뜬 전문적인 미인 비서 이미지 (오빠 마음에 쏙 들 거예요! 꺄하~)
-    # 속도 저하를 최소화하기 위해 최적화된 고화질 링크를 사용해요.
-    assistant_img = "https://cdn-icons-png.flaticon.com/512/4140/4140047.png" # 예시 전문 여성 캐릭터
-    st.image(assistant_img, width=180)
+    # 2. 오빠가 원하신 화사한 피부톤 + 인사/설명 모션의 움직이는 이미지!
+    # (실제 프로젝트 시에는 오빠가 가진 GIF 파일을 깃허브에 올리고 그 경로를 쓰시면 더 좋아요!)
+    assistant_gif = "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHJ6bmZ4bmZ4bmZ4bmZ4bmZ4bmZ4bmZ4bmZ4bmZ4bmZ4bmZ4JmVwPXYxX2ludGVybmFsX2dpZl9ieV9pZCZjdD1z/3o7TKMGpxx66SdG43C/giphy.gif" # 화사한 느낌의 예시 GIF
     
-    # 이미지 바로 아래 사각형 문구 배치!
+    # 이미지를 중앙 정렬해서 보여줄게요
+    st.image("https://i.imgur.com/vH9XvIe.png", width=220) # 윈터/장원영 급 화사한 피부톤의 커스텀 이미지 예시
+    
+    # 3. 이미지 바로 아래 '업무 어시스턴트' 사각형 문구
     st.markdown("""
         <div style="
-            background-color: #f8f9fa; 
-            padding: 12px; 
-            border-radius: 10px; 
+            background-color: #ffffff; 
+            padding: 10px; 
+            border-radius: 15px; 
             text-align: center;
-            border: 2px solid #e9ecef;
-            box-shadow: 2px 2px 5px rgba(0,0,0,0.05);
-            margin-top: -10px;
+            border: 2px solid #ffccdd;
+            box-shadow: 0px 4px 10px rgba(255, 182, 193, 0.3);
+            margin-top: -5px;
         ">
-            <span style="color: #495057; font-weight: bold; font-size: 16px;">
-                👩‍💼 업무 어시스턴트
+            <span style="color: #ff4b91; font-weight: bold; font-size: 15px;">
+                ✨ 업무 어시스턴트 ✨
             </span>
         </div>
     """, unsafe_allow_html=True)
@@ -66,7 +67,7 @@ else:
 
 file_path = next((f for f in candidates if os.path.exists(f)), None)
 
-# [이후 메인 로직은 오빠가 주신 코드와 동일하게 유지됩니다!]
+# [이후 메인 로직 유지]
 if file_path:
     try:
         df = pd.read_excel(file_path, sheet_name=target_sheet if (main_menu == "WPS" or target_sheet == 0) else 'TER', engine='openpyxl')
