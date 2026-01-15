@@ -1,85 +1,109 @@
 import streamlit as st
 import pandas as pd
+import google.generativeai as genai
 import os
-from openai import OpenAI 
 
 # 1. 페이지 설정
-st.set_page_config(page_title="윤성 실무 AI (GitHub 모델 안정화)", page_icon="🛡️", layout="wide")
+st.set_page_config(page_title="윤성 실무 AI (전체 데이터 분석)", page_icon="🛡️", layout="wide")
 
-# 2. GitHub Models 설정
-github_token = st.secrets.get("GITHUB_TOKEN")
+# 2. Gemini API 설정 및 모델 자동 탐색 🤙
+api_key = st.secrets.get("GEMINI_API_KEY")
 
-if github_token:
-    client = OpenAI(
-        base_url="https://models.inference.ai.azure.com",
-        api_key=github_token,
-    )
+if api_key:
+    genai.configure(api_key=api_key)
+    
+    # 404 에러 방지를 위해 여러 이름 후보를 순차적으로 시도합니다!
+    model_names = [
+        'gemini-1.5-flash',
+        'models/gemini-1.5-flash',
+        'gemini-1.5-flash-latest'
+    ]
+    
+    model = None
+    connected_name = ""
+    
+    for name in model_names:
+        try:
+            temp_model = genai.GenerativeModel(name)
+            # 실제로 작동하는지 가벼운 테스트
+            _ = temp_model.generate_content("ping", generation_config={"max_output_tokens": 1})
+            model = temp_model
+            connected_name = name
+            break
+        except:
+            continue
+            
+    if model:
+        st.sidebar.success(f"📡 연결 성공: {connected_name}")
+    else:
+        st.error("🚨 제미니 1.5 Flash 모델을 찾을 수 없습니다. API 키를 새로 발급받아주세요!")
+        st.stop()
 else:
-    st.error("🔑 Secrets에 GITHUB_TOKEN을 등록해주세요!")
+    st.error("🔑 Secrets에 GEMINI_API_KEY를 등록해주세요!")
     st.stop()
 
-# 3. 사이드바 업무 선택
+# 3. 사이드바 - 업무 모드 선택
 st.sidebar.title("📂 업무 제어판")
 main_menu = st.sidebar.radio("업무 모드를 선택하세요", ["WPS (용접 규격)", "TER (트러블 리포트)"])
 
-# 4. 파일 로드 (오빠 기존 경로 완벽 유지 🤙)
+# 4. 파일 로드 (매니저님 기존 파일명 후보들 🤙)
 if main_menu == "WPS (용접 규격)":
     st.title("👨‍🏭 WPS 실무 지식 베이스")
     candidates = ["wps_list.XLSX", "wps_list.xlsx", "wps_list.xlsx.xlsx"]
     target_sheet = 0
 else:
     st.title("🛠️ TER 트러블 정밀 분석 시스템")
-    candidates = ["ter_list.xlsx.xlsx", "ter_list.xlsx", "ter_list.XLSX"]
+    candidates = ["ter_list.xlsx.xlsx", "ter_list.xlsx", "ter_list.XLSX", "TER LIST.XLSX"]
     target_sheet = 'TER'
 
 file_path = next((f for f in candidates if os.path.exists(f)), None)
 
-if file_path:
-    try:
+try:
+    if file_path:
         xl = pd.ExcelFile(file_path, engine='openpyxl')
-        df = pd.read_excel(xl, sheet_name=target_sheet if (isinstance(target_sheet, int) or target_sheet in xl.sheet_names) else 0)
+        
+        # 시트 이름 확인 후 로드
+        if isinstance(target_sheet, str) and target_sheet not in xl.sheet_names:
+            df = pd.read_excel(xl, sheet_name=0)
+        else:
+            df = pd.read_excel(xl, sheet_name=target_sheet)
+            
         st.success(f"✅ {file_path} 로드 완료! (총 {len(df):,}행)")
 
         # 5. 질문 및 답변 인터페이스
-        user_input = st.text_input(f"💬 {main_menu} 데이터에 대해 질문하세요.")
+        user_input = st.text_input(f"💬 {main_menu} 전체 데이터에 대해 질문해 주세요.")
 
         if user_input:
-            with st.status("🚀 GitHub AI 엔진 분석 중...", expanded=True):
-                # 데이터 1,000줄 전송 🤙
-                context_data = df.tail(1000).to_csv(index=False)
+            with st.status("🚀 100만 토큰 엔진이 4.6MB 데이터를 정밀 분석 중...", expanded=True) as status:
+                # [전체 데이터 전송 전략] 🤙
+                # 제미니 1.5 Flash는 100만 토큰까지 가능하므로, 데이터를 통째로 CSV로 변환합니다.
+                context_data = df.to_csv(index=False)
                 
-                # [해결 포인트] 모델 이름을 순차적으로 시도합니다!
-                model_candidates = ["Meta-Llama-3.1-70B-Instruct", "gpt-4o", "Llama-3.3-70B-Instruct"]
-                success = False
+                prompt = f"""너는 윤성의 2차전지 장비 전문가야. 
+                아래 제공된 [전체 데이터]를 꼼꼼히 읽고, 오빠의 질문에 전문적이고 친절하게 답해줘.
                 
-                for target_model in model_candidates:
-                    try:
-                        response = client.chat.completions.create(
-                            messages=[
-                                {"role": "system", "content": "너는 윤성의 2차전지 장비 전문가야. 제공된 데이터를 바탕으로 친절하게 답해줘."},
-                                {"role": "user", "content": f"[데이터]\n{context_data}\n\n[질문]\n{user_input}"}
-                            ],
-                            model=target_model,
-                            temperature=0.2,
-                        )
-                        st.info(f"✨ 분석 모델: {target_model}")
-                        st.write(response.choices[0].message.content)
-                        success = True
-                        break # 성공하면 루프 탈출!
-                    except Exception as e:
-                        if "unknown_model" in str(e).lower():
-                            continue # 다음 모델로 시도
-                        else:
-                            st.error(f"🚨 오류 발생 ({target_model}): {e}")
-                            break
+                [전체 데이터]
+                {context_data}
                 
-                if not success:
-                    st.error("🚨 GitHub에서 사용할 수 있는 모델을 찾지 못했어요. 토큰 권한이나 모델명을 다시 확인해야 해요.")
-        
-        with st.expander("📊 데이터 미리보기"):
+                [질문]
+                {user_input}"""
+                
+                try:
+                    response = model.generate_content(prompt)
+                    status.update(label="✅ 분석 완료!", state="complete", expanded=False)
+                    st.info(response.text)
+                except Exception as e:
+                    if "429" in str(e):
+                        st.error("🚨 너무 빨리 질문하셨어요! 1분만 쉬었다가 다시 해주세요. 🤙")
+                    else:
+                        st.error(f"🚨 분석 중 에러가 발생했어요: {e}")
+                
+        # 데이터 미리보기
+        with st.expander("📊 데이터 미리보기 (상위 100개)"):
             st.dataframe(df.head(100))
             
-    except Exception as e:
-        st.error(f"🚨 파일 읽기 오류: {e}")
-else:
-    st.error("❌ 파일을 찾을 수 없습니다. 파일명을 확인해 주세요!")
+    else:
+        st.error(f"❌ '{main_menu}' 파일을 찾을 수 없습니다. 경로를 확인해 주세요!")
+
+except Exception as e:
+    st.error(f"🚨 시스템 오류: {e}")
