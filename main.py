@@ -1,43 +1,38 @@
 import streamlit as st
 import pandas as pd
 import os
-import requests  # 💡 SDK 대신 HTTP 호출을 위해 필요해요!
+import requests
 import json
 import re
 
 # 1. 페이지 설정
 st.set_page_config(page_title="윤성 AI (Gemini 3 모드)", page_icon="🛡️", layout="wide")
 
-# 2. API 설정 및 호출 함수 (REST API 방식) 🤙✨
+# 2. API 설정 및 호출 함수
 def call_gemini_3_api(prompt, api_key):
-    # 오빠가 말씀하신 그 주소 그대로! v1beta 버전이에요.
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash:generateContent?key={api_key}"
-    
     headers = {'Content-Type': 'application/json'}
     payload = {
         "contents": [{
             "parts": [{"text": prompt}]
         }]
     }
-    
     response = requests.post(url, headers=headers, data=json.dumps(payload))
-    
     if response.status_code == 200:
         result = response.json()
-        # 결과 텍스트 추출 로직
         return result['candidates'][0]['content']['parts'][0]['text']
     else:
-        # 에러 발생 시 상세 정보 출력
         return f"🚨 API 에러 ({response.status_code}): {response.text}"
 
 # API 키 가져오기
 raw_key = st.secrets.get("GEMINI_API_KEY")
 clean_key = raw_key.strip() if raw_key else None
 
-# 3. 사이드바 구성 (비서님은 아래에! 😍)
+# 3. 사이드바 구성 (TER이 기본이 되도록 순서 변경했어요! 헤헤)
 with st.sidebar:
     st.title("📂 업무 제어판")
-    main_menu = st.radio("업무 선택", ["WPS (용접 규격)", "TER (트러블 리포트)"])
+    # ✅ 여기서 순서를 "TER (트러블 리포트)"가 앞으로 오게 바꿨어용!
+    main_menu = st.radio("업무 선택", ["TER (트러블 리포트)", "WPS (용접 규격)"])
     
     st.markdown("<br>" * 10, unsafe_allow_html=True) 
     st.markdown("---")
@@ -57,20 +52,22 @@ with st.sidebar:
         )
 
 # 4. 메인 로직 시작
-if main_menu == "WPS (용접 규격)":
-    st.title("👨‍🏭 WPS 실무 지식 베이스")
-    candidates = ["wps_list.XLSX", "wps_list.xlsx"]
-    target_sheet = 0
-else:
+# ✅ 조건문도 TER이 먼저 나오게 처리했어요!
+if main_menu == "TER (트러블 리포트)":
     st.title("🛠️ TER 트러블 정밀 분석 시스템")
     candidates = ["ter_list.xlsx.xlsx", "ter_list.xlsx", "ter_list.XLSX", "TER LIST.XLSX"]
     target_sheet = 'TER'
+else:
+    st.title("👨‍🏭 WPS 실무 지식 베이스")
+    candidates = ["wps_list.XLSX", "wps_list.xlsx"]
+    target_sheet = 0
 
 file_path = next((f for f in candidates if os.path.exists(f)), None)
 
 if file_path:
     try:
-        df = pd.read_excel(file_path, sheet_name=target_sheet if (main_menu == "WPS (용접 규격)" or target_sheet == 0) else 'TER', engine='openpyxl')
+        # 데이터 로드 시 타겟 시트 설정
+        df = pd.read_excel(file_path, sheet_name=target_sheet, engine='openpyxl')
         df = df.astype(str).replace('nan', '', regex=True)
         st.success(f"✅ {file_path} 로드 완료!")
 
@@ -82,7 +79,7 @@ if file_path:
 
         user_question = st.text_input("💬 분석 질문 입력")
 
-        # 🎯 [ 엑셀 필터 무조건 포함 로직 ]
+        # 🎯 필터 로직
         def check_contains(row, keyword):
             if not keyword: return True
             return keyword.upper().strip() in " ".join(row).upper()
@@ -91,6 +88,9 @@ if file_path:
         if opt_word1:
             k1 = [k.strip().upper() for k in re.split(',|/|OR', opt_word1.upper()) if k.strip()]
             if k1: mask &= df.apply(lambda r: any(k in " ".join(r).upper() for k in k1), axis=1)
+        if opt_word2: # opt_word2 로직도 추가해두는게 좋겠죠? 오빠!
+            k2 = [k.strip().upper() for k in re.split(',|/|OR', opt_word2.upper()) if k.strip()]
+            if k2: mask &= df.apply(lambda r: any(k in " ".join(r).upper() for k in k2), axis=1)
 
         filtered_df = df[mask]
 
@@ -100,7 +100,6 @@ if file_path:
                     context_data = filtered_df.to_csv(index=False, sep="|")
                     prompt = f"2차전지 전문가로서 데이터 분석해줘:\n\n데이터:\n{context_data}\n\n질문: {user_question}"
                     
-                    # 💡 REST API 호출 실행!
                     answer = call_gemini_3_api(prompt, clean_key)
                     
                     st.info("✨ Gemini 3 분석 결과")
