@@ -3,10 +3,10 @@ import pandas as pd
 import os
 import google.generativeai as genai
 
-# 1. 페이지 설정 (매니저님 오빠를 위한 깔끔한 레이아웃 🤙)
-st.set_page_config(page_title="윤성 AI (전수 데이터 분석)", page_icon="🛡️", layout="wide")
+# 1. 페이지 설정
+st.set_page_config(page_title="윤성 AI (키워드 최적화 분석)", page_icon="🛡️", layout="wide")
 
-# 2. Gemini API 설정 (Secrets 관리 필수!)
+# 2. Gemini API 설정
 def get_clean_key():
     raw_key = st.secrets.get("GEMINI_API_KEY")
     if not raw_key: return None
@@ -15,23 +15,22 @@ def get_clean_key():
 clean_key = get_clean_key()
 if clean_key:
     genai.configure(api_key=clean_key)
-    # 오빠 화면에 떠 있는 그 모델! gemini-2.5-flash 🤙
     model = genai.GenerativeModel('gemini-2.5-flash')
 else:
-    st.error("🔑 Streamlit Secrets에 GEMINI_API_KEY를 등록해주세요!")
+    st.error("🔑 Secrets에 GEMINI_API_KEY를 등록해주세요!")
     st.stop()
 
-# 3. 사이드바 업무 제어판
+# 3. 사이드바 업무 선택
 st.sidebar.title("📂 업무 제어판")
 main_menu = st.sidebar.radio("업무 선택", ["WPS (용접 규격)", "TER (트러블 리포트)"])
 
-# 4. 파일 로드 (Zip 에러 방지 및 엔진 최적화 🛠️)
+# 4. 파일 로드
 if main_menu == "WPS (용접 규격)":
-    st.title("👨‍🏭 WPS 실무 지식 베이스 (전수 분석)")
+    st.title("👨‍🏭 WPS 실무 지식 베이스 (필터링 분석)")
     candidates = ["wps_list.XLSX", "wps_list.xlsx"]
     target_sheet = 0
 else:
-    st.title("🛠️ TER 트러블 정밀 분석 시스템 (전수 분석)")
+    st.title("🛠️ TER 트러블 정밀 분석 시스템 (필터링 분석)")
     candidates = ["ter_list.xlsx.xlsx", "ter_list.xlsx", "ter_list.XLSX", "TER LIST.XLSX"]
     target_sheet = 'TER'
 
@@ -39,60 +38,57 @@ file_path = next((f for f in candidates if os.path.exists(f)), None)
 
 if file_path:
     try:
-        # engine='openpyxl' 추가로 파일 로드 안정성 강화! 🤙
-        df = pd.read_excel(file_path, 
-                           sheet_name=target_sheet if (main_menu == "WPS" or target_sheet == 0) else 'TER',
-                           engine='openpyxl')
-        st.success(f"✅ {file_path} 로드 완료! (데이터 수: {len(df)}행)")
+        df = pd.read_excel(file_path, sheet_name=target_sheet if (main_menu == "WPS" or target_sheet == 0) else 'TER', engine='openpyxl')
+        st.success(f"✅ {file_path} 로드 완료!")
 
-        # 5. 질문 인터페이스
-        user_question = st.text_input("💬 질문을 입력하세요 (예: INNO MIXER 그리스 리크 건 모두 요약해줘)")
+        # 5. [검색어]와 [질문] 두 단계로 나누기 🤙
+        col1, col2 = st.columns(2)
+        with col1:
+            search_keyword = st.text_input("🔍 1. 필터링 검색어 (예: INNO, 그리스, 리크)", help="이 단어가 포함된 데이터만 AI에게 보냅니다.")
+        with col2:
+            user_question = st.text_input("💬 2. 질문 입력 (예: 이 리크 건들의 공통적인 원인이 뭐야?)")
 
         if st.button("🚀 분석 시작"):
-            if user_question:
-                # 상태 표시 시작!
-                with st.status("📡 데이터 최적화 분석 중...", expanded=True) as status:
+            if search_keyword and user_question:
+                with st.status("📡 데이터 최적화 및 분석 중...", expanded=True) as status:
                     try:
-                        # [데이터 다이어트] 토큰 절약을 위해 불필요한 공백 제거
-                        cleaned_df = df.dropna(how='all')
-                        # CSV 압축형태로 제미니에게 전달 (전수 분석용)
-                        full_context = cleaned_df.to_csv(index=False, sep="|")
-                        
-                        prompt = f"""너는 2차전지 장비 전문가야. 제공된 데이터를 분석해서 질문에 답해줘.
-                        관련된 사례가 여러 개라면 빠짐없이 모두 요약해줘야 해.
-                        
-                        [데이터베이스]
-                        {full_context}
-                        
-                        [질문]
-                        {user_question}
-                        """
-                        
-                        # 제미니 답변 생성
-                        response = model.generate_content(prompt)
-                        
-                        st.info("✨ 분석 결과")
-                        st.write(response.text)
-                        
-                        # 오빠가 요청한 문구로 상태 업데이트! 🤙✨
-                        status.update(label="✅ 데이터 최적화 분석 완료", state="complete", expanded=False)
-                        
-                    except Exception as e:
-                        # 429 에러(한도 초과) 발생 시 친절하게 안내
-                        if "429" in str(e):
-                            st.error("🚨 제미니가 지금 너무 바빠요(분당 한도 초과)! 무료 버전은 1분에 한 번만 전수 분석이 가능하니 1분 뒤에 다시 시도해 주세요. 😭")
+                        # [핵심] 키워드가 포함된 행만 필터링! 🤙
+                        mask = df.apply(lambda row: row.astype(str).str.contains(search_keyword, case=False).any(), axis=1)
+                        filtered_df = df[mask]
+
+                        if not filtered_df.empty:
+                            # 필터링된 데이터만 CSV로 변환 (용량이 확 줄어들어요! 🚀)
+                            context_data = filtered_df.to_csv(index=False, sep="|")
+                            
+                            prompt = f"""너는 2차전지 장비 전문가야. 
+                            다음은 전체 데이터 중 '{search_keyword}'와 관련된 내용들만 추출한 자료야.
+                            이 자료를 바탕으로 질문에 대해 전문적으로 답변해줘.
+                            
+                            [추출된 자료]
+                            {context_data}
+                            
+                            [질문]
+                            {user_question}
+                            """
+                            
+                            response = model.generate_content(prompt)
+                            st.info(f"✨ '{search_keyword}' 관련 분석 결과 (데이터 {len(filtered_df)}건 기반)")
+                            st.write(response.text)
+                            status.update(label="✅ 데이터 최적화 분석 완료", state="complete", expanded=False)
                         else:
-                            st.error(f"🚨 엔진 에러: {e}")
+                            st.warning(f"😭 '{search_keyword}'가 포함된 데이터를 찾을 수 없어요.")
+                            status.update(label="❌ 필터링 실패", state="error")
+                            
+                    except Exception as e:
+                        st.error(f"🚨 엔진 에러: {e}")
                         status.update(label="❌ 분석 실패", state="error")
             else:
-                st.warning("💡 분석하고 싶은 질문을 입력해 주세요!")
+                st.warning("💡 검색어와 질문을 모두 입력해 주세요!")
 
-        with st.expander("📊 데이터 전체 보기 (원본 확인용)"):
+        with st.expander("📊 데이터 전체 보기"):
             st.dataframe(df)
             
     except Exception as e:
-        # "File is not a zip file" 에러 등이 나면 여기서 잡혀요!
         st.error(f"🚨 파일 로드 에러: {e}")
-        st.info("💡 팁: 엑셀 파일을 'Excel 통합 문서(.xlsx)' 형식으로 다시 저장해서 올려보세요!")
 else:
-    st.error("❌ 분석할 엑셀 파일을 찾을 수 없습니다. 파일명을 확인해 주세요!")
+    st.error("❌ 파일을 찾을 수 없습니다.")
