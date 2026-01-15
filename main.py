@@ -28,13 +28,10 @@ main_menu = st.sidebar.radio("원하시는 업무를 고르세요", ["WPS (용�
 # 4. 철벽 방어 파일 로드 시스템 🤙
 file_path = None
 if main_menu == "WPS (용접 규격)":
-    # WPS 후보군
     candidates = ["wps_list.XLSX", "wps_list.xlsx", "wps_list.xlsx.xlsx"]
 else:
-    # TER 후보군 (오빠를 괴롭히던 이름들 다 넣어놨어요!)
     candidates = ["ter_list.xlsx", "ter_list.xlsx.xlsx", "ter_list.XLSX"]
 
-# 파일 찾기 시작!
 for f in candidates:
     if os.path.exists(f):
         file_path = f
@@ -42,27 +39,32 @@ for f in candidates:
 
 try:
     if file_path:
-        # 파일 용량 체크 (2KB 껍데기 방지!)
         file_size = os.path.getsize(file_path)
-        if file_size < 3000: # 3KB 미만이면 경고!
+        if file_size < 3000:
             st.error(f"🚨 오빠! '{file_path}' 파일 용량이 {file_size} Bytes밖에 안 돼요!")
             st.info("💡 이건 실제 엑셀이 아니라 '껍데기'일 확률이 높아요. 웹에서 직접 업로드해 보세요!")
             st.stop()
 
-        # 엑셀 읽기 (엔진 고정!)
+        # 엑셀 읽기
         xl = pd.ExcelFile(file_path, engine='openpyxl')
         
         if main_menu == "TER (트러블 리포트)":
             st.title("🛠️ TER 트러블 정밀 분석기")
-            selected_sheet = st.sidebar.selectbox("📋 분석할 시트 선택", xl.sheet_names)
-            df = pd.read_excel(xl, sheet_name=selected_sheet)
+            # [수정] 'TER'라는 이름의 시트가 있는지 확인하고 바로 로드!
+            target_sheet = 'TER'
+            if target_sheet in xl.sheet_names:
+                df = pd.read_excel(xl, sheet_name=target_sheet)
+                st.success(f"✅ '{file_path}'의 [{target_sheet}] 시트를 성공적으로 읽어왔어요! 🤙")
+            else:
+                # 만약 TER 시트가 없으면 첫 번째 시트를 대신 읽어요
+                df = pd.read_excel(xl, sheet_name=0)
+                st.warning(f"⚠️ '{target_sheet}' 시트가 없어서 첫 번째 시트({xl.sheet_names[0]})를 가져왔어요.")
         else:
             st.title("👨‍🏭 WPS 실무 전문가")
             df = pd.read_excel(xl)
+            st.success(f"✅ WPS 데이터를 로드 완료했습니다! 😍")
 
-        st.success(f"✅ '{file_path}' ({selected_sheet if main_menu == 'TER (트러블 리포트)' else '기본'}) 로드 완료! 🤙✨")
-
-        # 5. 질문 및 답변 (전체 데이터 기반)
+        # 5. 질문 및 답변
         full_context = df.to_csv(index=False)
         user_input = st.text_input(f"💬 {main_menu}에 대해 무엇이든 물어보세요!")
 
@@ -82,7 +84,7 @@ try:
                     st.info(f"🤖 {key_num}번 엔진 가동 완료!")
                     st.markdown(answer)
     else:
-        st.error(f"❌ 깃허브에 파일이 없어요 오빠! 후보군({candidates})을 다 뒤져봤는데 못 찾았어요. 😭")
+        st.error(f"❌ 깃허브에 파일이 없어요 오빠! 😭")
 
 except Exception as e:
     st.error(f"🚨 오빠, 여기서 문제가 생겼어요: {e}")
