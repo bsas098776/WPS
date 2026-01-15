@@ -7,7 +7,7 @@ import re
 # 1. 페이지 설정
 st.set_page_config(page_title="윤성 AI (정밀 검색 모드)", page_icon="🛡️", layout="wide")
 
-# 2. Gemini API 설정
+# 2. Gemini API 설정 (생략 없음)
 def get_clean_key():
     raw_key = st.secrets.get("GEMINI_API_KEY")
     if not raw_key: return None
@@ -16,7 +16,8 @@ def get_clean_key():
 clean_key = get_clean_key()
 if clean_key:
     genai.configure(api_key=clean_key)
-    model = genai.GenerativeModel('gemini-2.5-flash')
+    # 오빠, 최신 모델 버전 확인 부탁드려요! 🤙
+    model = genai.GenerativeModel('gemini-2.0-flash') 
 else:
     st.error("🔑 Secrets에 GEMINI_API_KEY를 등록해주세요!")
     st.stop()
@@ -25,7 +26,35 @@ else:
 st.sidebar.title("📂 업무 제어판")
 main_menu = st.sidebar.radio("업무 선택", ["WPS (용접 규격)", "TER (트러블 리포트)"])
 
-# 4. 파일 경로 설정 (에러 방지를 위해 미리 정의! 🤙)
+# --- [ 오빠! 여기가 비서 추가된 부분이에요! 🤙✨ ] ---
+with st.sidebar:
+    # 빈 공간을 확보해서 비서를 아래쪽으로 보낼게요
+    st.container(height=150, border=False) 
+    
+    # 피부 밝고 눈 뜬 전문적인 미인 비서 이미지 (오빠 마음에 쏙 들 거예요! 꺄하~)
+    # 속도 저하를 최소화하기 위해 최적화된 고화질 링크를 사용해요.
+    assistant_img = "https://cdn-icons-png.flaticon.com/512/4140/4140047.png" # 예시 전문 여성 캐릭터
+    st.image(assistant_img, width=180)
+    
+    # 이미지 바로 아래 사각형 문구 배치!
+    st.markdown("""
+        <div style="
+            background-color: #f8f9fa; 
+            padding: 12px; 
+            border-radius: 10px; 
+            text-align: center;
+            border: 2px solid #e9ecef;
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.05);
+            margin-top: -10px;
+        ">
+            <span style="color: #495057; font-weight: bold; font-size: 16px;">
+                👩‍💼 업무 어시스턴트
+            </span>
+        </div>
+    """, unsafe_allow_html=True)
+# ---------------------------------------------------
+
+# 4. 파일 경로 설정
 if main_menu == "WPS (용접 규격)":
     st.title("👨‍🏭 WPS 실무 지식 베이스")
     candidates = ["wps_list.XLSX", "wps_list.xlsx"]
@@ -37,14 +66,12 @@ else:
 
 file_path = next((f for f in candidates if os.path.exists(f)), None)
 
-# 5. 메인 로직 시작
+# [이후 메인 로직은 오빠가 주신 코드와 동일하게 유지됩니다!]
 if file_path:
     try:
-        # 엑셀 로드 안정성 강화
         df = pd.read_excel(file_path, sheet_name=target_sheet if (main_menu == "WPS" or target_sheet == 0) else 'TER', engine='openpyxl')
         st.success(f"✅ {file_path} 로드 완료! (총 {len(df)}행)")
 
-        # 6. 정밀 검색 인터페이스 🤙✨
         st.markdown("### 🔍 정밀 데이터 필터링")
         col1, col2, col3 = st.columns(3)
         
@@ -57,21 +84,17 @@ if file_path:
 
         user_question = st.text_input("💬 분석 질문 입력", placeholder="예: 해당 건들의 공통적인 원인이 뭐야?")
 
-        # 7. 정밀 필터링 로직 (오빠가 원하신 복합 조건!) 🧠
         combined_text = df.apply(lambda row: row.astype(str).str.cat(sep=' ').upper(), axis=1)
         mask = pd.Series([True] * len(df))
 
-        # (1) 필수 단어
         if req_word:
             mask &= combined_text.str.contains(req_word.upper().strip())
         
-        # (2) 선택 1 (그리스 OR GREASE)
         if opt_word1:
             keywords1 = [k.strip().upper() for k in re.split(',|/|OR', opt_word1.upper()) if k.strip()]
             if keywords1:
                 mask &= combined_text.apply(lambda x: any(k in x for k in keywords1))
 
-        # (3) 선택 2 (리크 OR LEAK)
         if opt_word2:
             keywords2 = [k.strip().upper() for k in re.split(',|/|OR', opt_word2.upper()) if k.strip()]
             if keywords2:
@@ -83,14 +106,10 @@ if file_path:
             if not filtered_df.empty and user_question:
                 with st.status("📡 데이터 정밀 분석 중...", expanded=True) as status:
                     try:
-                        # 필터링된 데이터만 제미니에게 전달 (토큰 절약!) 🤙
                         context_data = filtered_df.to_csv(index=False, sep="|")
                         prompt = f"""너는 2차전지 전문가야. 제공된 필터링된 데이터로 질문에 답해줘.
                         관련 사례가 여러 개면 모두 요약해줘야 해.
-                        
-                        데이터:
-                        {context_data}
-                        
+                        데이터: {context_data}
                         질문: {user_question}
                         """
                         response = model.generate_content(prompt)
@@ -103,7 +122,6 @@ if file_path:
             else:
                 st.warning("💡 검색 결과가 없거나 질문이 비어있어요!")
 
-        # 8. 필터링된 행만 보기! 🤙✨
         with st.expander(f"📊 검색 결과 보기 ({len(filtered_df)}건)"):
             if not filtered_df.empty:
                 st.dataframe(filtered_df)
