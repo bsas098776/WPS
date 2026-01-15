@@ -26,7 +26,6 @@ with st.sidebar:
     st.title("📂 업무 제어판")
     main_menu = st.radio("업무 선택", ["WPS (용접 규격)", "TER (트러블 리포트)"])
     
-    # 비서님 위치 조절 (공백 팍팍!) 🤙
     st.markdown("<br>" * 10, unsafe_allow_html=True) 
     st.markdown("---")
     
@@ -44,7 +43,7 @@ with st.sidebar:
             unsafe_allow_html=True
         )
 
-# 4. 파일 경로 및 메인 로직
+# 4. 파일 경로 설정
 if main_menu == "WPS (용접 규격)":
     st.title("👨‍🏭 WPS 실무 지식 베이스")
     candidates = ["wps_list.XLSX", "wps_list.xlsx"]
@@ -56,8 +55,10 @@ else:
 
 file_path = next((f for f in candidates if os.path.exists(f)), None)
 
+# 5. 메인 로직 시작
 if file_path:
     try:
+        # 데이터 로드
         df = pd.read_excel(file_path, sheet_name=target_sheet if (main_menu == "WPS (용접 규격)" or target_sheet == 0) else 'TER', engine='openpyxl')
         st.success(f"✅ {file_path} 로드 완료!")
 
@@ -69,34 +70,35 @@ if file_path:
 
         user_question = st.text_input("💬 분석 질문 입력")
 
-        # --- [ 🧠 강화된 필터링 로직! ] ---
-        # 모든 데이터를 대문자로 합쳐서 비교해요!
+        # --- [ 🧠 오빠를 위한 초정밀 필터링 로직! ] ---
+        # 1. 모든 셀의 데이터를 문자열로 바꾸고 하나로 합친 뒤 대문자로 통일!
         combined_text = df.apply(lambda row: row.astype(str).str.cat(sep=' ').upper(), axis=1)
         mask = pd.Series([True] * len(df))
 
-        # (1) 필수 포함 단어: "UDM"이 어디에 박혀있든 다 찾아내기! 🤙
+        # 2. 필수 단어 필터링 (여기서 UDM을 찰떡같이 찾아요! 🤙)
         if req_word:
             search_term = req_word.upper().strip()
-            mask &= combined_text.str.contains(search_term, na=False, regex=False)
+            # regex=False로 설정해서 특수기호를 문자로 인식하게 하고, na=False로 에러 방지!
+            mask &= combined_text.str.contains(search_term, case=False, na=False, regex=False)
         
-        # (2) 선택 1 (OR)
+        # 3. 선택 단어 1 (OR)
         if opt_word1:
             keywords1 = [k.strip().upper() for k in re.split(',|/|OR', opt_word1.upper()) if k.strip()]
             if keywords1:
-                # 단어 하나라도 포함되어 있으면 OK!
                 mask &= combined_text.apply(lambda x: any(k in x for k in keywords1))
 
-        # (3) 선택 2 (OR)
+        # 4. 선택 단어 2 (OR)
         if opt_word2:
             keywords2 = [k.strip().upper() for k in re.split(',|/|OR', opt_word2.upper()) if k.strip()]
             if keywords2:
                 mask &= combined_text.apply(lambda x: any(k in x for k in keywords2))
 
+        # 필터링 적용
         filtered_df = df[mask]
 
         if st.button("🚀 정밀 분석 시작"):
             if not filtered_df.empty and user_question:
-                with st.status("📡 분석 중...", expanded=True) as status:
+                with st.status("📡 데이터 분석 중...", expanded=True) as status:
                     context_data = filtered_df.to_csv(index=False, sep="|")
                     prompt = f"너는 2차전지 전문가야. 다음 데이터로 질문에 답해줘:\n\n{context_data}\n\n질문: {user_question}"
                     response = model.generate_content(prompt)
@@ -106,8 +108,12 @@ if file_path:
             else:
                 st.warning("💡 검색 결과가 없거나 질문이 비어있어요!")
 
+        # 결과 표시 (건수 확인용 🤙)
         with st.expander(f"📊 검색 결과 보기 ({len(filtered_df)}건)"):
-            st.dataframe(filtered_df)
+            if not filtered_df.empty:
+                st.dataframe(filtered_df)
+            else:
+                st.write("검색어를 입력하시면 필터링된 결과가 나옵니다. 🤙")
             
     except Exception as e:
         st.error(f"🚨 로드 에러: {e}")
