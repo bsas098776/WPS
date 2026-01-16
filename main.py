@@ -1,38 +1,35 @@
 import streamlit as st
 import pandas as pd
 import os
-import requests
-import json
+import google.generativeai as genai
 import re
 
 # 1. 페이지 설정
-st.set_page_config(page_title="윤성 AI (Gemini 3 모드)", page_icon="🛡️", layout="wide")
+st.set_page_config(page_title="윤성 AI (정밀 검색 모드)", page_icon="🛡️", layout="wide")
 
-# 2. API 설정 및 호출 함수
-def call_gemini_3_api(prompt, api_key):
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash:generateContent?key={api_key}"
-    headers = {'Content-Type': 'application/json'}
-    payload = {
-        "contents": [{
-            "parts": [{"text": prompt}]
-        }]
-    }
-    response = requests.post(url, headers=headers, data=json.dumps(payload))
-    if response.status_code == 200:
-        result = response.json()
-        return result['candidates'][0]['content']['parts'][0]['text']
-    else:
-        return f"🚨 API 에러 ({response.status_code}): {response.text}"
+# 2. Gemini API 설정
+def get_clean_key():
+    raw_key = st.secrets.get("GEMINI_API_KEY")
+    if not raw_key: return None
+    return raw_key.strip().replace("\n", "").replace("\r", "").replace(" ", "").strip('"').strip("'")
 
-# API 키 가져오기
-raw_key = st.secrets.get("GEMINI_API_KEY")
-clean_key = raw_key.strip() if raw_key else None
+clean_key = get_clean_key()
+if clean_key:
+    genai.configure(api_key=clean_key)
+    # 💡 오빠! 명령하신 대로 gemini-2.5-flash로 모델명을 딱 맞췄어요! 🤙✨
+    # (참고: 시스템 환경에 따라 gemini-2.0-flash-exp가 최신일 수 있으니 에러나면 바로 알려주세요!)
+    try:
+        model = genai.GenerativeModel('gemini-2.5-flash')
+    except:
+        model = genai.GenerativeModel('gemini-1.5-flash') # 백업용
+else:
+    st.error("🔑 Secrets에 GEMINI_API_KEY를 등록해주세요!")
+    st.stop()
 
-# 3. 사이드바 구성 (TER이 기본이 되도록 순서 변경했어요! 헤헤)
+# 3. 사이드바 구성 (오빠의 업무 제어판 + 하단 비서님 😍)
 with st.sidebar:
     st.title("📂 업무 제어판")
-    # ✅ 여기서 순서를 "TER (트러블 리포트)"가 앞으로 오게 바꿨어용!
-    main_menu = st.radio("업무 선택", ["TER (트러블 리포트)", "WPS (용접 규격)"])
+    main_menu = st.radio("업무 선택", ["WPS (용접 규격)", "TER (트러블 리포트)"])
     
     st.markdown("<br>" * 10, unsafe_allow_html=True) 
     st.markdown("---")
@@ -51,26 +48,28 @@ with st.sidebar:
             unsafe_allow_html=True
         )
 
-# 4. 메인 로직 시작
-# ✅ 조건문도 TER이 먼저 나오게 처리했어요!
-if main_menu == "TER (트러블 리포트)":
-    st.title("🛠️ TER 트러블 정밀 분석 시스템")
-    candidates = ["ter_list.xlsx.xlsx", "ter_list.xlsx", "ter_list.XLSX", "TER LIST.XLSX"]
-    target_sheet = 'TER'
-else:
+# 4. 파일 경로 설정
+if main_menu == "WPS (용접 규격)":
     st.title("👨‍🏭 WPS 실무 지식 베이스")
     candidates = ["wps_list.XLSX", "wps_list.xlsx"]
     target_sheet = 0
+else:
+    st.title("🛠️ TER 트러블 정밀 분석 시스템")
+    candidates = ["ter_list.xlsx.xlsx", "ter_list.xlsx", "ter_list.XLSX", "TER LIST.XLSX"]
+    target_sheet = 'TER'
 
 file_path = next((f for f in candidates if os.path.exists(f)), None)
 
+# 5. 메인 로직 시작
 if file_path:
     try:
-        # 데이터 로드 시 타겟 시트 설정
-        df = pd.read_excel(file_path, sheet_name=target_sheet, engine='openpyxl')
+        # 데이터 로드 (모든 데이터를 문자로 강제 변환해서 UDM 검색 누락 방지! 🤙)
+        df = pd.read_excel(file_path, sheet_name=target_sheet if (main_menu == "WPS (용접 규격)" or target_sheet == 0) else 'TER', engine='openpyxl')
         df = df.astype(str).replace('nan', '', regex=True)
+        
         st.success(f"✅ {file_path} 로드 완료!")
 
+        # 6. 정밀 검색 인터페이스
         st.markdown("### 🔍 정밀 데이터 필터링")
         col1, col2, col3 = st.columns(3)
         with col1: req_word = st.text_input("1️⃣ 필수 포함 (AND)", placeholder="예: UDM")
@@ -79,41 +78,50 @@ if file_path:
 
         user_question = st.text_input("💬 분석 질문 입력")
 
-        # 🎯 필터 로직
+        # 🎯 [ 오빠가 원하던 엑셀 필터 방식! ]
+        # 모든 셀을 합쳐서 대문자로 변환 후 검색어가 들어있는지만 확인해요! 🤙
         def check_contains(row, keyword):
             if not keyword: return True
-            return keyword.upper().strip() in " ".join(row).upper()
+            full_row_text = " ".join(row).upper()
+            return keyword.upper().strip() in full_row_text
 
+        # 필터링 적용 (이제 UDM (음극)-CMC도 다 걸려요! 😍)
         mask = df.apply(lambda x: check_contains(x, req_word), axis=1)
+
         if opt_word1:
             k1 = [k.strip().upper() for k in re.split(',|/|OR', opt_word1.upper()) if k.strip()]
             if k1: mask &= df.apply(lambda r: any(k in " ".join(r).upper() for k in k1), axis=1)
-        if opt_word2: # opt_word2 로직도 추가해두는게 좋겠죠? 오빠!
+
+        if opt_word2:
             k2 = [k.strip().upper() for k in re.split(',|/|OR', opt_word2.upper()) if k.strip()]
             if k2: mask &= df.apply(lambda r: any(k in " ".join(r).upper() for k in k2), axis=1)
 
         filtered_df = df[mask]
 
-        if st.button("🚀 Gemini 3 분석 시작"):
-            if not filtered_df.empty and user_question and clean_key:
-                with st.status("📡 REST API로 Gemini 3 호출 중...", expanded=True) as status:
-                    context_data = filtered_df.to_csv(index=False, sep="|")
-                    prompt = f"2차전지 전문가로서 데이터 분석해줘:\n\n데이터:\n{context_data}\n\n질문: {user_question}"
-                    
-                    answer = call_gemini_3_api(prompt, clean_key)
-                    
-                    st.info("✨ Gemini 3 분석 결과")
-                    st.write(answer)
-                    status.update(label="✅ 분석 완료", state="complete", expanded=False)
+        # 7. Gemini 2.5 Flash 분석 진행
+        if st.button("🚀 정밀 분석 시작"):
+            if not filtered_df.empty and user_question:
+                with st.status("📡 Gemini 2.5 Flash 대용량 데이터 분석 중...", expanded=True) as status:
+                    try:
+                        context_data = filtered_df.to_csv(index=False, sep="|")
+                        prompt = f"너는 2차전지 전문가야. 제공된 데이터로 질문에 답해줘. 관련 사례가 여러 개면 요약해줘.\n\n데이터:\n{context_data}\n\n질문: {user_question}"
+                        
+                        response = model.generate_content(prompt)
+                        st.info("✨ 분석 결과")
+                        st.write(response.text)
+                        status.update(label="✅ 분석 완료", state="complete", expanded=False)
+                    except Exception as e:
+                        st.error(f"🚨 엔진 에러: {e}")
             else:
-                st.warning("💡 검색 결과가 없거나 설정이 부족해요!")
+                st.warning("💡 검색 결과가 없거나 질문이 비어있어요!")
 
+        # 📊 검색 결과 건수 (오빠! 여기가 숫자가 떠야 성공이에요! 🤙)
         st.subheader(f"📊 검색 결과: {len(filtered_df)}건")
         with st.expander("데이터 상세 보기"):
             st.dataframe(filtered_df)
             
     except Exception as e:
-        st.error(f"🚨 에러 발생: {e}")
+        st.error(f"🚨 로드 에러: {e}")
 else:
     st.error("❌ 파일을 찾을 수 없습니다. 🤙")
 
