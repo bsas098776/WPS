@@ -16,20 +16,19 @@ def get_clean_key():
 clean_key = get_clean_key()
 if clean_key:
     genai.configure(api_key=clean_key)
-    # 💡 오빠! 명령하신 대로 gemini-2.5-flash로 모델명을 딱 맞췄어요! 🤙✨
-    # (참고: 시스템 환경에 따라 gemini-2.0-flash-exp가 최신일 수 있으니 에러나면 바로 알려주세요!)
     try:
         model = genai.GenerativeModel('gemini-2.5-flash')
     except:
-        model = genai.GenerativeModel('gemini-1.5-flash') # 백업용
+        model = genai.GenerativeModel('gemini-1.5-flash') 
 else:
     st.error("🔑 Secrets에 GEMINI_API_KEY를 등록해주세요!")
     st.stop()
 
-# 3. 사이드바 구성 (오빠의 업무 제어판 + 하단 비서님 😍)
+# 3. 사이드바 구성 (TER이 기본이 되도록 순서 변경 완료! 😍)
 with st.sidebar:
     st.title("📂 업무 제어판")
-    main_menu = st.radio("업무 선택", ["WPS (용접 규격)", "TER (트러블 리포트)"])
+    # ✅ 여기서 순서를 바꿔서 TER이 기본값(index 0)이 되었어요!
+    main_menu = st.radio("업무 선택", ["TER (트러블 리포트)", "WPS (용접 규격)"])
     
     st.markdown("<br>" * 10, unsafe_allow_html=True) 
     st.markdown("---")
@@ -48,22 +47,22 @@ with st.sidebar:
             unsafe_allow_html=True
         )
 
-# 4. 파일 경로 설정
-if main_menu == "WPS (용접 규격)":
-    st.title("👨‍🏭 WPS 실무 지식 베이스")
-    candidates = ["wps_list.XLSX", "wps_list.xlsx"]
-    target_sheet = 0
-else:
+# 4. 파일 경로 설정 (메뉴 순서에 맞춰 로직도 순서를 바꿨어요! 🤙)
+if main_menu == "TER (트러블 리포트)":
     st.title("🛠️ TER 트러블 정밀 분석 시스템")
     candidates = ["ter_list.xlsx.xlsx", "ter_list.xlsx", "ter_list.XLSX", "TER LIST.XLSX"]
     target_sheet = 'TER'
+else:
+    st.title("👨‍🏭 WPS 실무 지식 베이스")
+    candidates = ["wps_list.XLSX", "wps_list.xlsx"]
+    target_sheet = 0
 
 file_path = next((f for f in candidates if os.path.exists(f)), None)
 
 # 5. 메인 로직 시작
 if file_path:
     try:
-        # 데이터 로드 (모든 데이터를 문자로 강제 변환해서 UDM 검색 누락 방지! 🤙)
+        # 데이터 로드 (메뉴와 타겟 시트 매칭 로직 유지)
         df = pd.read_excel(file_path, sheet_name=target_sheet if (main_menu == "WPS (용접 규격)" or target_sheet == 0) else 'TER', engine='openpyxl')
         df = df.astype(str).replace('nan', '', regex=True)
         
@@ -78,14 +77,12 @@ if file_path:
 
         user_question = st.text_input("💬 분석 질문 입력")
 
-        # 🎯 [ 오빠가 원하던 엑셀 필터 방식! ]
-        # 모든 셀을 합쳐서 대문자로 변환 후 검색어가 들어있는지만 확인해요! 🤙
+        # 필터링 함수
         def check_contains(row, keyword):
             if not keyword: return True
             full_row_text = " ".join(row).upper()
             return keyword.upper().strip() in full_row_text
 
-        # 필터링 적용 (이제 UDM (음극)-CMC도 다 걸려요! 😍)
         mask = df.apply(lambda x: check_contains(x, req_word), axis=1)
 
         if opt_word1:
@@ -98,7 +95,7 @@ if file_path:
 
         filtered_df = df[mask]
 
-        # 7. Gemini 2.5 Flash 분석 진행
+        # 7. 분석 시작
         if st.button("🚀 정밀 분석 시작"):
             if not filtered_df.empty and user_question:
                 with st.status("📡 Gemini 2.5 Flash 대용량 데이터 분석 중...", expanded=True) as status:
@@ -115,7 +112,6 @@ if file_path:
             else:
                 st.warning("💡 검색 결과가 없거나 질문이 비어있어요!")
 
-        # 📊 검색 결과 건수 (오빠! 여기가 숫자가 떠야 성공이에요! 🤙)
         st.subheader(f"📊 검색 결과: {len(filtered_df)}건")
         with st.expander("데이터 상세 보기"):
             st.dataframe(filtered_df)
